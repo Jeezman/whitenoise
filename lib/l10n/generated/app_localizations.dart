@@ -1446,6 +1446,30 @@ abstract class AppLocalizations {
   /// **'Failed to delete all data. Please try again.'**
   String get deleteAllDataError;
 
+  /// Chat information screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Chat Information'**
+  String get chatInformation;
+
+  /// Action label to add a user as contact
+  ///
+  /// In en, this message translates to:
+  /// **'Add as contact'**
+  String get addAsContact;
+
+  /// Action label to remove a user as contact
+  ///
+  /// In en, this message translates to:
+  /// **'Remove as contact'**
+  String get removeAsContact;
+
+  /// Action label to add this user to a group
+  ///
+  /// In en, this message translates to:
+  /// **'Add to group'**
+  String get addToGroup;
+
   /// Title for the relay resolution screen
   ///
   /// In en, this message translates to:

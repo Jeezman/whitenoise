@@ -745,6 +745,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deleteAllDataError => 'Failed to delete all data. Please try again.';
 
   @override
+  String get chatInformation => 'Chat Information';
+
+  @override
+  String get addAsContact => 'Add as contact';
+
+  @override
+  String get removeAsContact => 'Remove as contact';
+
+  @override
+  String get addToGroup => 'Add to group';
+
+  @override
   String get relayResolutionTitle => 'Relay Setup';
 
   @override

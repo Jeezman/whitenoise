@@ -752,6 +752,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String get deleteAllDataError => 'Не удалось удалить все данные. Пожалуйста, попробуйте снова.';
 
   @override
+  String get chatInformation => 'Информация о чате';
+
+  @override
+  String get addAsContact => 'Добавить в контакты';
+
+  @override
+  String get removeAsContact => 'Удалить из контактов';
+
+  @override
+  String get addToGroup => 'Добавить в группу';
+
+  @override
   String get relayResolutionTitle => 'Настройка реле';
 
   @override

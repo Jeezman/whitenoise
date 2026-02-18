@@ -750,6 +750,18 @@ class AppLocalizationsFr extends AppLocalizations {
       'Échec de la suppression de toutes les données. Veuillez réessayer.';
 
   @override
+  String get chatInformation => 'Informations du chat';
+
+  @override
+  String get addAsContact => 'Ajouter comme contact';
+
+  @override
+  String get removeAsContact => 'Retirer des contacts';
+
+  @override
+  String get addToGroup => 'Ajouter à un groupe';
+
+  @override
   String get relayResolutionTitle => 'Configuration du relais';
 
   @override
