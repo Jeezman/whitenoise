@@ -404,6 +404,103 @@ class AppLocalizationsIt extends AppLocalizations {
   String get goBack => 'Torna indietro';
 
   @override
+  String get createGroup => 'Crea gruppo';
+
+  @override
+  String get newGroupChat => 'Nuova chat di gruppo';
+
+  @override
+  String get selectMembers => 'Seleziona Membri';
+
+  @override
+  String selectedCount(int count) {
+    return '$count selezionati';
+  }
+
+  @override
+  String get clearSelection => 'Cancella';
+
+  @override
+  String get continueButton => 'Continua';
+
+  @override
+  String get setUpGroup => 'Configura gruppo';
+
+  @override
+  String get groupName => 'Nome del Gruppo';
+
+  @override
+  String get groupNamePlaceholder => 'Inserisci il nome del gruppo';
+
+  @override
+  String get groupDescription => 'Descrizione del Gruppo';
+
+  @override
+  String get description => 'Descrizione';
+
+  @override
+  String get groupDescriptionPlaceholder => 'A cosa serve questo gruppo?';
+
+  @override
+  String members(int count) {
+    return '$count membri';
+  }
+
+  @override
+  String invitingMembers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Invito di membri:',
+      one: 'Invito di membro:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get usersWithoutKeyPackages =>
+      'Utenti senza pacchetti di chiavi (non possono essere aggiunti)';
+
+  @override
+  String usersNotOnWhiteNoise(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Questi utenti non sono su White Noise',
+      one: 'Questo utente non è su White Noise',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String usersNotOnWhiteNoiseDescription(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Questi utenti non possono essere aggiunti al gruppo perché non hanno White Noise installato o non hanno ancora pubblicato i loro pacchetti di chiavi.',
+      one:
+          'Questo utente non può essere aggiunto al gruppo perché non ha White Noise installato o non ha ancora pubblicato il suo pacchetto di chiavi.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get uploadingImage => 'Caricamento immagine...';
+
+  @override
+  String get creatingGroup => 'Creazione gruppo...';
+
+  @override
+  String get groupNameRequired => 'Il nome del gruppo è obbligatorio';
+
+  @override
+  String get noUsersWithKeyPackages => 'Nessun utente con pacchetti di chiavi da aggiungere';
+
+  @override
+  String get createGroupFailed => 'Creazione gruppo non riuscita';
+
+  @override
   String get reportError => 'Segnala errore';
 
   @override

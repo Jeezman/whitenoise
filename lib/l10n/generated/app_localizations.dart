@@ -840,6 +840,138 @@ abstract class AppLocalizations {
   /// **'Go back'**
   String get goBack;
 
+  /// Create group button text
+  ///
+  /// In en, this message translates to:
+  /// **'Create group'**
+  String get createGroup;
+
+  /// Menu item text to start a new group chat
+  ///
+  /// In en, this message translates to:
+  /// **'New group chat'**
+  String get newGroupChat;
+
+  /// User selection screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Select Members'**
+  String get selectMembers;
+
+  /// Number of selected users
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String selectedCount(int count);
+
+  /// Clear selection button text
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get clearSelection;
+
+  /// Continue button text
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get continueButton;
+
+  /// Set up group screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Set up group'**
+  String get setUpGroup;
+
+  /// Group name label
+  ///
+  /// In en, this message translates to:
+  /// **'Group Name'**
+  String get groupName;
+
+  /// Group name input placeholder
+  ///
+  /// In en, this message translates to:
+  /// **'Enter group name'**
+  String get groupNamePlaceholder;
+
+  /// Group description label
+  ///
+  /// In en, this message translates to:
+  /// **'Group Description'**
+  String get groupDescription;
+
+  /// Generic description label
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get description;
+
+  /// Group description input placeholder
+  ///
+  /// In en, this message translates to:
+  /// **'What is this group for?'**
+  String get groupDescriptionPlaceholder;
+
+  /// Number of members
+  ///
+  /// In en, this message translates to:
+  /// **'{count} members'**
+  String members(int count);
+
+  /// Label for inviting members in group setup
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Inviting member:} other{Inviting members:}}'**
+  String invitingMembers(int count);
+
+  /// Message for users without key packages
+  ///
+  /// In en, this message translates to:
+  /// **'Users without key packages (cannot be added)'**
+  String get usersWithoutKeyPackages;
+
+  /// Title for users without key packages
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{This user is not on White Noise} other{These users are not on White Noise}}'**
+  String usersNotOnWhiteNoise(int count);
+
+  /// Description for users without key packages
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{This user cannot be added to the group because they don\'t have White Noise installed or haven\'t published their key package yet.} other{These users cannot be added to the group because they don\'t have White Noise installed or haven\'t published their key packages yet.}}'**
+  String usersNotOnWhiteNoiseDescription(int count);
+
+  /// Uploading image status
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading image...'**
+  String get uploadingImage;
+
+  /// Creating group status
+  ///
+  /// In en, this message translates to:
+  /// **'Creating group...'**
+  String get creatingGroup;
+
+  /// Error message when group name is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Group name is required'**
+  String get groupNameRequired;
+
+  /// Error message when no users have key packages
+  ///
+  /// In en, this message translates to:
+  /// **'No users with key packages to add'**
+  String get noUsersWithKeyPackages;
+
+  /// Error message when group creation fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to create group'**
+  String get createGroupFailed;
+
   /// Report error button text
   ///
   /// In en, this message translates to:

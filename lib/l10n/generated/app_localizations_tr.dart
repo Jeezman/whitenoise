@@ -403,6 +403,102 @@ class AppLocalizationsTr extends AppLocalizations {
   String get goBack => 'Geri dön';
 
   @override
+  String get createGroup => 'Grup oluştur';
+
+  @override
+  String get newGroupChat => 'Yeni grup sohbeti';
+
+  @override
+  String get selectMembers => 'Üye Seç';
+
+  @override
+  String selectedCount(int count) {
+    return '$count seçildi';
+  }
+
+  @override
+  String get clearSelection => 'Temizle';
+
+  @override
+  String get continueButton => 'Devam Et';
+
+  @override
+  String get setUpGroup => 'Grup oluştur';
+
+  @override
+  String get groupName => 'Grup Adı';
+
+  @override
+  String get groupNamePlaceholder => 'Grup adını girin';
+
+  @override
+  String get groupDescription => 'Grup Açıklaması';
+
+  @override
+  String get description => 'Açıklama';
+
+  @override
+  String get groupDescriptionPlaceholder => 'Bu grup ne için?';
+
+  @override
+  String members(int count) {
+    return '$count üye';
+  }
+
+  @override
+  String invitingMembers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Üyeler davet ediliyor:',
+      one: 'Üye davet ediliyor:',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get usersWithoutKeyPackages => 'Anahtar paketi olmayan kullanıcılar (eklenemez)';
+
+  @override
+  String usersNotOnWhiteNoise(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Bu kullanıcılar White Noise\'da değil',
+      one: 'Bu kullanıcı White Noise\'da değil',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String usersNotOnWhiteNoiseDescription(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Bu kullanıcılar gruba eklenemez çünkü White Noise yüklü değil veya henüz anahtar paketlerini yayınlamamışlar.',
+      one:
+          'Bu kullanıcı gruba eklenemez çünkü White Noise yüklü değil veya henüz anahtar paketini yayınlamamış.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get uploadingImage => 'Resim yükleniyor...';
+
+  @override
+  String get creatingGroup => 'Grup oluşturuluyor...';
+
+  @override
+  String get groupNameRequired => 'Grup adı gerekli';
+
+  @override
+  String get noUsersWithKeyPackages => 'Eklenecek anahtar paketi olan kullanıcı yok';
+
+  @override
+  String get createGroupFailed => 'Grup oluşturma başarısız oldu';
+
+  @override
   String get reportError => 'Hata bildir';
 
   @override
