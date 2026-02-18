@@ -7,11 +7,9 @@ on:
     branches: [master]
 
 jobs:
-  lint-and-test:
-    name: Lint and test
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
-    outputs:
-      coverage: ${{ steps.coverage.outputs.percentage }}
 
     steps:
     - name: Checkout code
@@ -36,7 +34,7 @@ jobs:
       with:
         path: |
           ~/.pub-cache
-          ${{ runner.workspace }}/.pub-cache
+          ${{ github.workspace }}/.pub-cache
         key: ${{ runner.os }}-pub-cache-${{ hashFiles('**/pubspec.lock') }}
         restore-keys: |
           ${{ runner.os }}-pub-cache-
@@ -75,7 +73,41 @@ jobs:
     - name: Flutter analyze (widgetbook)
       run: cd widgetbook && flutter analyze --fatal-infos
 
-    - name: Run Flutter tests
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    outputs:
+      coverage: ${{ steps.coverage.outputs.percentage }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.38.4'
+        channel: 'stable'
+        cache: true
+
+    - name: Cache Flutter dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.pub-cache
+          ${{ github.workspace }}/.pub-cache
+        key: ${{ runner.os }}-pub-cache-${{ hashFiles('**/pubspec.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-pub-cache-
+
+    - name: Install Flutter dependencies
+      run: |
+        flutter pub get
+        cd widgetbook && flutter pub get
+
+    - name: Run Flutter tests with coverage
       run: flutter test --coverage
 
     - name: Extract coverage percentage
@@ -86,34 +118,103 @@ jobs:
         echo "percentage=$COVERAGE" >> "$GITHUB_OUTPUT"
         echo "Current coverage: $COVERAGE%"
 
+    - name: Install lcov (cached)
+      uses: awalsh128/cache-apt-pkgs-action@v1
+      with:
+        packages: lcov
+        version: 1.0
+
+    - name: Generate coverage summary and HTML report
+      run: |
+        mkdir -p coverage
+
+        LINES_HIT=$(grep -E "^LH:" coverage/lcov.info | awk -F: '{sum+=$2} END {print sum+0}')
+        TOTAL_LINES=$(grep -E "^LF:" coverage/lcov.info | awk -F: '{sum+=$2} END {print sum+0}')
+
+        {
+          echo "Coverage summary"
+          echo "================"
+          echo "Coverage: ${{ steps.coverage.outputs.percentage }}%"
+          echo "Lines hit: $LINES_HIT"
+          echo "Lines found: $TOTAL_LINES"
+        } > coverage/summary.txt
+
+        genhtml coverage/lcov.info --output-directory coverage/html
+
+    - name: Upload HTML coverage report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report-html
+        path: coverage/html/
+        retention-days: 90
+
+    - name: Upload lcov coverage report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report-lcov
+        path: coverage/lcov.info
+        retention-days: 90
+
+    - name: Upload coverage summary
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-summary
+        path: coverage/summary.txt
+        retention-days: 90
+
   coverage:
     name: Coverage
     if: github.event_name == 'pull_request'
-    needs: lint-and-test
+    needs: [lint, test]
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       pull-requests: write
 
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download coverage artifact from test job
+      uses: actions/download-artifact@v4
+      with:
+        name: coverage-report-lcov
+        path: coverage-input
+
+    - name: Read coverage percentage from shared artifact
+      id: current_coverage
+      run: |
+        chmod +x scripts/check-coverage.sh
+        LCOV_FILE=$(find coverage-input -type f -name 'lcov.info' | head -n 1)
+
+        if [ -z "$LCOV_FILE" ]; then
+          echo "::error::Could not find lcov.info in downloaded coverage artifact."
+          exit 1
+        fi
+
+        CURRENT=$(./scripts/check-coverage.sh "$LCOV_FILE")
+        echo "percentage=$CURRENT" >> "$GITHUB_OUTPUT"
+        echo "Current coverage from shared artifact: $CURRENT%"
+
     - name: Get master branch coverage
       id: master_coverage
       run: |
         echo "🔍 Searching for baseline from master branch..."
 
-        # Get the latest completed CI workflow run ID from master
+        # Get the latest successful CI workflow run ID from master
         RUN_ID=$(gh run list \
           --repo ${{ github.repository }} \
           --workflow=ci.yml \
           --branch master \
-          --status completed \
+          --status success \
           --limit 1 \
           --json databaseId \
           --jq '.[0].databaseId')
 
         if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
           echo "baseline=0" >> "$GITHUB_OUTPUT"
-          echo "⚠️  No completed CI run found on master"
+          echo "⚠️  No successful CI run found on master"
           exit 0
         fi
 
@@ -140,10 +241,11 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
 
-    - name: Compare coverage
+    - name: Compute coverage delta
       if: steps.master_coverage.outputs.baseline != '0'
+      id: coverage_delta
       run: |
-        CURRENT=${{ needs.lint-and-test.outputs.coverage }}
+        CURRENT=${{ steps.current_coverage.outputs.percentage }}
         BASELINE=${{ steps.master_coverage.outputs.baseline }}
 
         echo "=== Coverage Comparison ==="
@@ -151,49 +253,152 @@ jobs:
         echo "This PR:       $CURRENT%"
 
         DIFF=$(awk "BEGIN {printf \"%.2f\", $CURRENT - $BASELINE}")
-
         if (( $(awk "BEGIN {print ($CURRENT < $BASELINE)}") )); then
+          STATUS='decreased'
           echo "❌ Coverage decreased by ${DIFF#-}%"
-          echo "::error::Coverage regression detected. Coverage decreased from $BASELINE% to $CURRENT% ($DIFF%)"
-          exit 1
         elif (( $(awk "BEGIN {print ($CURRENT > $BASELINE)}") )); then
+          STATUS='increased'
           echo "✅ Coverage improved by $DIFF%"
         else
+          STATUS='same'
           echo "✅ Coverage maintained at $BASELINE%"
         fi
+
+        echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+        echo "baseline=$BASELINE" >> "$GITHUB_OUTPUT"
+        echo "diff=$DIFF" >> "$GITHUB_OUTPUT"
+        echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+
+    - name: Write coverage step summary
+      if: always()
+      run: |
+        if [ "${{ steps.master_coverage.outputs.baseline }}" = "0" ]; then
+          {
+            echo "## Coverage"
+            echo ""
+            echo "Could not find a master baseline artifact, so comparison was skipped."
+            echo "Current PR coverage: **${{ steps.current_coverage.outputs.percentage }}%**"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
+
+        CURRENT="${{ steps.coverage_delta.outputs.current }}"
+        BASELINE="${{ steps.coverage_delta.outputs.baseline }}"
+        DIFF="${{ steps.coverage_delta.outputs.diff }}"
+        STATUS="${{ steps.coverage_delta.outputs.status }}"
+        SIGN=""
+
+        if [ "$STATUS" = "increased" ]; then
+          SIGN="+"
+        fi
+
+        {
+          echo "## Coverage"
+          echo ""
+          echo "| Baseline (master) | PR | Delta |"
+          echo "| --- | --- | --- |"
+          echo "| ${BASELINE}% | ${CURRENT}% | ${SIGN}${DIFF}% |"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Fail on coverage regression
+      if: steps.master_coverage.outputs.baseline != '0' && steps.coverage_delta.outputs.status == 'decreased'
+      run: |
+        echo "::error::Coverage regression detected. Coverage decreased from ${{ steps.coverage_delta.outputs.baseline }}% to ${{ steps.coverage_delta.outputs.current }}% (${{ steps.coverage_delta.outputs.diff }}%)"
+        exit 1
 
     - name: Comment PR with coverage change
       if: always() && steps.master_coverage.outputs.baseline != '0'
       uses: actions/github-script@v7
       with:
         script: |
-          const current = parseFloat('${{ needs.lint-and-test.outputs.coverage }}');
+          const current = parseFloat('${{ steps.current_coverage.outputs.percentage }}');
           const baseline = parseFloat('${{ steps.master_coverage.outputs.baseline }}');
-          const diff = (current - baseline).toFixed(2);
+          const rawDiff = current - baseline;
+          const displayDiff = rawDiff.toFixed(2);
+          const sha = context.sha.substring(0, 7);
+          const now = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+          const emoji = rawDiff > 0 ? ':white_check_mark:' : rawDiff < 0 ? ':x:' : ':white_check_mark:';
+          const sign = rawDiff > 0 ? '+' : '';
 
-          let emoji = current > baseline ? '✅' : current < baseline ? '❌' : '➡️';
+          const marker = '<!-- coverage-report -->';
+          const historyStart = '<!-- coverage-history -->';
+          const historyEnd = '<!-- /coverage-history -->';
 
-          const body = `## ${emoji} Coverage: ${baseline}% → ${current}% (${diff > 0 ? '+' : ''}${diff}%)`;
-
-          github.rest.issues.createComment({
+          const { data: comments } = await github.rest.issues.listComments({
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: body
           });
+
+          const existing = comments.find(c => c.body && c.body.includes(marker));
+          let historyEntries = [];
+
+          if (existing) {
+            const hStart = existing.body.indexOf(historyStart);
+            const hEnd = existing.body.indexOf(historyEnd);
+
+            if (hStart !== -1 && hEnd !== -1) {
+              const historyBlock = existing.body.substring(
+                hStart + historyStart.length, hEnd
+              );
+              historyEntries = historyBlock
+                .split('\n')
+                .filter(line => line.trim().startsWith('- '));
+            }
+          }
+
+          const shaEntryPrefix = `- \`${sha}\``;
+          historyEntries = historyEntries.filter(
+            line => !line.trim().startsWith(shaEntryPrefix)
+          );
+
+          historyEntries.push(
+            `- \`${sha}\` ${now} — **${current}%** (${sign}${displayDiff}% vs base)`
+          );
+
+          const body = [
+            `## ${emoji} Coverage: ${baseline}% → ${current}% (${sign}${displayDiff}%)`,
+            '',
+            '<details>',
+            '<summary>History</summary>',
+            '',
+            historyStart,
+            ...historyEntries,
+            historyEnd,
+            '',
+            '</details>',
+            '',
+            marker,
+          ].join('\n');
+
+          if (existing) {
+            await github.rest.issues.updateComment({
+              comment_id: existing.id,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body,
+            });
+          }
 
   coverage-baseline:
     name: Coverage Baseline
     if: github.event_name == 'push'
-    needs: lint-and-test
+    needs: test
     runs-on: ubuntu-latest
 
     steps:
     - name: Save coverage baseline
       run: |
         mkdir -p coverage-baseline
-        echo "${{ needs.lint-and-test.outputs.coverage }}" > coverage-baseline/coverage-baseline.txt
-        echo "Saved baseline: ${{ needs.lint-and-test.outputs.coverage }}%"
+        echo "${{ needs.test.outputs.coverage }}" > coverage-baseline/coverage-baseline.txt
+        echo "Saved baseline: ${{ needs.test.outputs.coverage }}%"
 
     - name: Upload coverage baseline
       uses: actions/upload-artifact@v4
