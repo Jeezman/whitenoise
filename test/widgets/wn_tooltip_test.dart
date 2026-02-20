@@ -4,7 +4,7 @@ import 'package:flutter/material.dart'
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whitenoise/widgets/wn_tooltip.dart'
     show ArrowPainter, WnTooltip, WnTooltipPosition, WnTooltipTriggerMode;
-import '../test_helpers.dart' show mountWidget, setUpTestView;
+import '../test_helpers.dart' show mountWidget, setUpTestView, testDesignSize;
 
 void main() {
   group('WnTooltip tests', () {
@@ -669,6 +669,64 @@ void main() {
         final arrowCenterX = arrowBox.center.dx;
         final triggerCenterX = triggerBox.center.dx;
         expect((arrowCenterX - triggerCenterX).abs(), lessThanOrEqualTo(2));
+      });
+
+      testWidgets('tooltip near top edge shifts down for left-positioned tooltip', (
+        WidgetTester tester,
+      ) async {
+        setUpTestView(tester);
+        final widget = const Scaffold(
+          body: SizedBox(
+            width: 400,
+            height: 400,
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: WnTooltip(
+                message: 'This is a tooltip with long text',
+                position: WnTooltipPosition.left,
+                child: SizedBox(width: 20, height: 20, child: Text('T')),
+              ),
+            ),
+          ),
+        );
+        await mountWidget(widget, tester);
+        await tester.longPress(find.text('T'));
+        await tester.pumpAndSettle();
+
+        final tooltipContent = find.byKey(const Key('tooltip_content'));
+        expect(tooltipContent, findsOneWidget);
+
+        final tooltipBox = tester.getRect(tooltipContent);
+        expect(tooltipBox.top, greaterThanOrEqualTo(0));
+      });
+
+      testWidgets('tooltip near bottom edge shifts up for right-positioned tooltip', (
+        WidgetTester tester,
+      ) async {
+        setUpTestView(tester);
+        final widget = const Scaffold(
+          body: SizedBox(
+            width: 400,
+            height: 400,
+            child: Align(
+              alignment: Alignment.bottomRight,
+              child: WnTooltip(
+                message: 'This is a tooltip with long text',
+                position: WnTooltipPosition.right,
+                child: SizedBox(width: 20, height: 20, child: Text('B')),
+              ),
+            ),
+          ),
+        );
+        await mountWidget(widget, tester);
+        await tester.longPress(find.text('B'));
+        await tester.pumpAndSettle();
+
+        final tooltipContent = find.byKey(const Key('tooltip_content'));
+        expect(tooltipContent, findsOneWidget);
+
+        final tooltipBox = tester.getRect(tooltipContent);
+        expect(tooltipBox.bottom, lessThanOrEqualTo(testDesignSize.height));
       });
     });
 
