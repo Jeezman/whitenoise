@@ -16,6 +16,7 @@ import 'package:whitenoise/widgets/wn_slate.dart';
 import 'package:whitenoise/widgets/wn_system_notice.dart';
 
 import '../mocks/mock_clipboard.dart' show clearClipboardMock, mockClipboard, mockClipboardFailing;
+import '../mocks/mock_share_plus.dart';
 import '../mocks/mock_wn_api.dart';
 import '../test_helpers.dart';
 
@@ -198,6 +199,11 @@ void main() {
       await pumpStartChatScreen(tester, userPubkey: _otherPubkey);
       expect(find.byKey(const Key('start_chat_button')), findsOneWidget);
       expect(find.text('Send message'), findsOneWidget);
+    });
+
+    testWidgets('does not show invite button when user has valid key package', (tester) async {
+      await pumpStartChatScreen(tester, userPubkey: _otherPubkey);
+      expect(find.byKey(const Key('invite_button')), findsNothing);
     });
 
     group('with metadata', () {
@@ -399,6 +405,38 @@ void main() {
         expect(find.byKey(const Key('start_chat_button')), findsNothing);
       });
 
+      testWidgets('shows invite button', (tester) async {
+        await pumpStartChatScreen(tester, userPubkey: _otherPubkey);
+        expect(find.byKey(const Key('invite_button')), findsOneWidget);
+      });
+
+      testWidgets('invite button shows correct label', (tester) async {
+        await pumpStartChatScreen(tester, userPubkey: _otherPubkey);
+        final button = tester.widget<WnButton>(find.byKey(const Key('invite_button')));
+        expect(button.text, 'Share');
+      });
+
+      testWidgets('tapping invite button calls SharePlus.instance.share with invite message', (
+          tester,
+          ) async {
+        final shareCalls = mockSharePlus();
+        addTearDown(clearSharePlusMock);
+        await pumpStartChatScreen(tester, userPubkey: _otherPubkey);
+
+        await tester.tap(find.byKey(const Key('invite_button')));
+        await tester.pumpAndSettle();
+
+        expect(shareCalls.length, 1);
+        expect(shareCalls[0].method, 'share');
+
+        // Verify the invite message text is included in the share call arguments
+        final args = shareCalls[0].arguments as Map<dynamic, dynamic>;
+        expect(
+          args['text'],
+          contains('whitenoise.chat'),
+        );
+      });
+
       group('invite callout description', () {
         testWidgets('uses displayName when available', (tester) async {
           _api.metadata = const FlutterMetadata(
@@ -454,6 +492,11 @@ void main() {
       testWidgets('does not show start chat button', (tester) async {
         await pumpStartChatScreen(tester, userPubkey: _otherPubkey);
         expect(find.byKey(const Key('start_chat_button')), findsNothing);
+      });
+
+      testWidgets('does not show invite button', (tester) async {
+        await pumpStartChatScreen(tester, userPubkey: _otherPubkey);
+        expect(find.byKey(const Key('invite_button')), findsNothing);
       });
 
       group('invite callout description', () {
