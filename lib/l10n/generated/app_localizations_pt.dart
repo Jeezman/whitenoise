@@ -1043,6 +1043,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get failedToAddMembers => 'Não foi possível adicionar membros. Tente novamente.';
 
   @override
+  String get groupImageUploadFailed => 'Grupo criado, mas a imagem falhou ao enviar.';
+
+  @override
   String get userNeedsUpdate => 'Atualização de chave necessária';
 
   @override
