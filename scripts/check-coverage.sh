@@ -16,6 +16,7 @@ set -euo pipefail
 # Default values
 LCOV_FILE="coverage/lcov.info"
 MIN_COVERAGE=""
+WARNINGS_FILE=""
 
 print_error() {
 	printf '%b%s%b\n' "\e[31;1m" "$1" "\e[0m" >&2
@@ -39,6 +40,10 @@ parse_arguments() {
 		case $1 in
 		--min)
 			MIN_COVERAGE="$2"
+			shift 2
+			;;
+		--warnings-file)
+			WARNINGS_FILE="$2"
 			shift 2
 			;;
 		*)
@@ -139,6 +144,11 @@ inject_missing_files() {
 
 	if [ "$missing_count" -gt 0 ]; then
 		print_missing_files_warning "$missing_count" "${missing_files[@]}"
+		if [ -n "$WARNINGS_FILE" ]; then
+			printf '%s\n' "${missing_files[@]}" >"$WARNINGS_FILE"
+		fi
+	elif [ -n "$WARNINGS_FILE" ]; then
+		: >"$WARNINGS_FILE"
 	fi
 }
 
