@@ -265,6 +265,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ChatMessageSummary dco_decode_box_autoadd_chat_message_summary(dynamic raw);
 
   @protected
+  DeliveryStatus dco_decode_box_autoadd_delivery_status(dynamic raw);
+
+  @protected
   Draft dco_decode_box_autoadd_draft(dynamic raw);
 
   @protected
@@ -310,6 +313,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ChatSummary dco_decode_chat_summary(dynamic raw);
+
+  @protected
+  DeliveryStatus dco_decode_delivery_status(dynamic raw);
 
   @protected
   Draft dco_decode_draft(dynamic raw);
@@ -465,6 +471,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ChatMessageSummary? dco_decode_opt_box_autoadd_chat_message_summary(
     dynamic raw,
   );
+
+  @protected
+  DeliveryStatus? dco_decode_opt_box_autoadd_delivery_status(dynamic raw);
 
   @protected
   Draft? dco_decode_opt_box_autoadd_draft(dynamic raw);
@@ -760,6 +769,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  DeliveryStatus sse_decode_box_autoadd_delivery_status(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   Draft sse_decode_box_autoadd_draft(SseDeserializer deserializer);
 
   @protected
@@ -821,6 +835,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ChatSummary sse_decode_chat_summary(SseDeserializer deserializer);
+
+  @protected
+  DeliveryStatus sse_decode_delivery_status(SseDeserializer deserializer);
 
   @protected
   Draft sse_decode_draft(SseDeserializer deserializer);
@@ -1002,6 +1019,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ChatMessageSummary? sse_decode_opt_box_autoadd_chat_message_summary(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  DeliveryStatus? sse_decode_opt_box_autoadd_delivery_status(
     SseDeserializer deserializer,
   );
 
@@ -1355,6 +1377,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_delivery_status(
+    DeliveryStatus self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_draft(Draft self, SseSerializer serializer);
 
   @protected
@@ -1431,6 +1459,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_chat_summary(ChatSummary self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_delivery_status(
+    DeliveryStatus self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_draft(Draft self, SseSerializer serializer);
@@ -1657,6 +1691,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_chat_message_summary(
     ChatMessageSummary? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_delivery_status(
+    DeliveryStatus? self,
     SseSerializer serializer,
   );
 

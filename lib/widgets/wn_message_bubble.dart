@@ -27,6 +27,7 @@ class _TextWithTimestamp extends StatelessWidget {
     required this.textStyle,
     required this.tsStyle,
     required this.isOutgoing,
+    this.deliveryStatus,
   });
 
   final String content;
@@ -34,6 +35,7 @@ class _TextWithTimestamp extends StatelessWidget {
   final TextStyle textStyle;
   final TextStyle tsStyle;
   final bool isOutgoing;
+  final ChatStatusType? deliveryStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +60,7 @@ class _TextWithTimestamp extends StatelessWidget {
               Text(timestamp, style: tsStyle),
               if (isOutgoing) ...[
                 SizedBox(width: _chatStatusGap.w),
-                const WnChatStatus(status: ChatStatusType.sent),
+                WnChatStatus(status: deliveryStatus ?? ChatStatusType.sent),
               ],
             ],
           ),
@@ -187,6 +189,7 @@ class _BubbleContent extends StatelessWidget {
     required this.reactionType,
     required this.currentUserPubkey,
     required this.onReaction,
+    this.deliveryStatus,
   });
 
   final Color bubbleColor;
@@ -208,6 +211,7 @@ class _BubbleContent extends StatelessWidget {
   final WnReactionType reactionType;
   final String? currentUserPubkey;
   final void Function(String emoji)? onReaction;
+  final ChatStatusType? deliveryStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -248,6 +252,7 @@ class _BubbleContent extends StatelessWidget {
               textStyle: textStyle,
               tsStyle: tsStyle,
               isOutgoing: isOutgoing,
+              deliveryStatus: deliveryStatus,
             )
           else if (hasText)
             Text(content!, style: textStyle)
@@ -259,7 +264,7 @@ class _BubbleContent extends StatelessWidget {
                 Text(timestamp!, style: tsStyle),
                 if (isOutgoing) ...[
                   SizedBox(width: _chatStatusGap.w),
-                  const WnChatStatus(status: ChatStatusType.sent),
+                  WnChatStatus(status: deliveryStatus ?? ChatStatusType.sent),
                 ],
               ],
             ),
@@ -305,6 +310,7 @@ class WnMessageBubble extends StatelessWidget {
   final String? senderName;
   final Color? senderNameColor;
   final BubbleLeadingVariant leadingVariant;
+  final ChatStatusType? deliveryStatus;
 
   const WnMessageBubble({
     super.key,
@@ -324,6 +330,7 @@ class WnMessageBubble extends StatelessWidget {
     this.senderName,
     this.senderNameColor,
     this.leadingVariant = BubbleLeadingVariant.none,
+    this.deliveryStatus,
   });
 
   bool get _isOutgoing => direction == MessageDirection.outgoing;
@@ -387,6 +394,7 @@ class WnMessageBubble extends StatelessWidget {
       reactionType: reactionType,
       currentUserPubkey: currentUserPubkey,
       onReaction: onReaction,
+      deliveryStatus: deliveryStatus,
     );
 
     final bubble = Align(

@@ -90,6 +90,14 @@ class _MockApi extends MockWnApi {
     );
   }
 
+  void emitDeliveryStatusChanged(ChatMessage message) {
+    controller?.add(
+      MessageStreamItem.update(
+        update: MessageUpdate(trigger: UpdateTrigger.deliveryStatusChanged, message: message),
+      ),
+    );
+  }
+
   void emitError(Object error, [StackTrace? stackTrace]) {
     controller?.addError(error, stackTrace ?? StackTrace.current);
   }
@@ -557,6 +565,42 @@ void main() {
         final result = getResult();
         expect(result.messageCount, 1);
         expect(result.getMessage(0).content, 'updated');
+      });
+    });
+
+    group('deliveryStatusChanged', () {
+      testWidgets('updates message data in place', (tester) async {
+        final getResult = await _pump(tester, 'group1');
+
+        _api.emitInitialSnapshot([
+          _message('m1', DateTime(2024), content: 'hello'),
+          _message('m2', DateTime(2024, 1, 2), content: 'world'),
+        ]);
+        await tester.pumpAndSettle();
+
+        _api.emitDeliveryStatusChanged(_message('m1', DateTime(2024), content: 'hello-updated'));
+        await tester.pumpAndSettle();
+
+        final result = getResult();
+        expect(result.messageCount, 2);
+        expect(result.getMessageById('m1')?.content, 'hello-updated');
+      });
+
+      testWidgets('does not change message order', (tester) async {
+        final getResult = await _pump(tester, 'group1');
+
+        _api.emitInitialSnapshot([
+          _message('m1', DateTime(2024)),
+          _message('m2', DateTime(2024, 1, 2)),
+        ]);
+        await tester.pumpAndSettle();
+
+        _api.emitDeliveryStatusChanged(_message('m1', DateTime(2024)));
+        await tester.pumpAndSettle();
+
+        final result = getResult();
+        expect(result.getMessage(0).id, 'm2');
+        expect(result.getMessage(1).id, 'm1');
       });
     });
 
