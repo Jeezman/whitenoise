@@ -360,6 +360,23 @@
   "thisMessageWasDeleted": "Questo messaggio è stato eliminato.",
   "youDeletedThisMessage": "Hai eliminato questo messaggio.",
   "relayControlStateLoadError": "Impossibile caricare lo stato di controllo del relay. Per favore, riprova.",
+  "updateAvailableTitle": "Aggiornamento disponibile",
+  "@updateAvailableTitle": {
+    "description": "Title of the update-available banner shown when a newer version is on Zapstore"
+  },
+  "updateAvailableDescription": "La versione {version} è disponibile su Zapstore.",
+  "@updateAvailableDescription": {
+    "description": "Body of the update-available banner",
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updateNow": "Aggiorna ora",
+  "@updateNow": {
+    "description": "Button label that opens the Zapstore listing for the app update"
+  },
   "fatalErrorCopyError": "Copia errore",
   "fatalErrorErrorCopied": "Errore copiato negli appunti",
   "fatalErrorTitle": "Oh no!",

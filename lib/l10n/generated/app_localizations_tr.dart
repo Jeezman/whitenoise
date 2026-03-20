@@ -1229,6 +1229,30 @@ class AppLocalizationsTr extends AppLocalizations {
       'Röle kontrol durumu yüklenemedi. Lütfen tekrar deneyin.';
 
   @override
+  String get updateAvailableTitle => 'Güncelleme mevcut';
+
+  @override
+  String updateAvailableDescription(String version) {
+    return '$version sürümü Zapstore\'da mevcut.';
+  }
+
+  @override
+  String get updateNow => 'Şimdi güncelle';
+
+  @override
+  String get fatalErrorCopyError => 'Hatayı kopyala';
+
+  @override
+  String get fatalErrorErrorCopied => 'Hata panoya kopyalandı';
+
+  @override
+  String get fatalErrorTitle => 'Eyvah!';
+
+  @override
+  String get fatalErrorDescription =>
+      'Uygulama yüklenirken bir sorunla karşılaştık. Sorun sende değil, biziz ve özür dileriz.\n\nDüzeltmemize yardımcı ol. Aşağıya dokunarak bu hatayı ekibimize gönder.';
+
+  @override
   String get reportBug => 'Hata bildir';
 
   @override
@@ -1280,17 +1304,4 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get failedToStartSupportChat => 'Destek ile sohbet başlatılamadı';
-
-  @override
-  String get fatalErrorTitle => 'Eyvah!';
-
-  @override
-  String get fatalErrorDescription =>
-      'Uygulama yüklenirken bir sorunla karşılaştık. Sorun sende değil, biziz ve özür dileriz.\n\nDüzeltmemize yardımcı ol. Aşağıya dokunarak bu hatayı ekibimize gönder.';
-
-  @override
-  String get fatalErrorCopyError => 'Hatayı kopyala';
-
-  @override
-  String get fatalErrorErrorCopied => 'Hata panoya kopyalandı';
 }

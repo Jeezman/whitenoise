@@ -1233,6 +1233,30 @@ class AppLocalizationsIt extends AppLocalizations {
       'Impossibile caricare lo stato di controllo del relay. Per favore, riprova.';
 
   @override
+  String get updateAvailableTitle => 'Aggiornamento disponibile';
+
+  @override
+  String updateAvailableDescription(String version) {
+    return 'La versione $version è disponibile su Zapstore.';
+  }
+
+  @override
+  String get updateNow => 'Aggiorna ora';
+
+  @override
+  String get fatalErrorCopyError => 'Copia errore';
+
+  @override
+  String get fatalErrorErrorCopied => 'Errore copiato negli appunti';
+
+  @override
+  String get fatalErrorTitle => 'Oh no!';
+
+  @override
+  String get fatalErrorDescription =>
+      'Abbiamo avuto un problema nel caricamento dell\'app. Non sei tu, siamo noi e ci scusiamo.\n\nAiutaci a risolverlo. Tocca sotto per inviare questo errore al nostro team.';
+
+  @override
   String get reportBug => 'Segnala un bug';
 
   @override
@@ -1284,17 +1308,4 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get failedToStartSupportChat => 'Impossibile avviare la chat con il supporto';
-
-  @override
-  String get fatalErrorTitle => 'Oh no!';
-
-  @override
-  String get fatalErrorDescription =>
-      'Abbiamo avuto un problema nel caricamento dell\'app. Non sei tu, siamo noi e ci scusiamo.\n\nAiutaci a risolverlo. Tocca sotto per inviare questo errore al nostro team.';
-
-  @override
-  String get fatalErrorCopyError => 'Copia errore';
-
-  @override
-  String get fatalErrorErrorCopied => 'Errore copiato negli appunti';
 }

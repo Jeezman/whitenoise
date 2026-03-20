@@ -1244,6 +1244,30 @@ class AppLocalizationsFr extends AppLocalizations {
       'Échec du chargement de l\'état de contrôle du relais. Veuillez réessayer.';
 
   @override
+  String get updateAvailableTitle => 'Mise à jour disponible';
+
+  @override
+  String updateAvailableDescription(String version) {
+    return 'La version $version est disponible sur Zapstore.';
+  }
+
+  @override
+  String get updateNow => 'Mettre à jour';
+
+  @override
+  String get fatalErrorCopyError => 'Copier l\'erreur';
+
+  @override
+  String get fatalErrorErrorCopied => 'Erreur copiée dans le presse-papiers';
+
+  @override
+  String get fatalErrorTitle => 'Oh non !';
+
+  @override
+  String get fatalErrorDescription =>
+      'Nous avons eu un problème lors du chargement de l\'app. Ce n\'est pas de votre faute, c\'est la nôtre et nous nous excusons.\n\nAidez-nous à résoudre ce problème. Appuyez ci-dessous pour envoyer cette erreur à notre équipe.';
+
+  @override
   String get reportBug => 'Signaler un bug';
 
   @override
@@ -1296,17 +1320,4 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get failedToStartSupportChat => 'Échec du démarrage du chat avec le support';
-
-  @override
-  String get fatalErrorTitle => 'Oh non !';
-
-  @override
-  String get fatalErrorDescription =>
-      'Nous avons eu un problème lors du chargement de l\'app. Ce n\'est pas de votre faute, c\'est la nôtre et nous nous excusons.\n\nAidez-nous à résoudre ce problème. Appuyez ci-dessous pour envoyer cette erreur à notre équipe.';
-
-  @override
-  String get fatalErrorCopyError => 'Copier l\'erreur';
-
-  @override
-  String get fatalErrorErrorCopied => 'Erreur copiée dans le presse-papiers';
 }
