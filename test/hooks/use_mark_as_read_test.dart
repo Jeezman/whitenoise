@@ -107,7 +107,9 @@ void main() {
         expect(lastResult?.firstUnreadIndex, 2);
       });
 
-      testWidgets('is null when last read message is not in the list', (tester) async {
+      testWidgets('treats all messages as unread when last read is not in loaded set', (
+        tester,
+      ) async {
         _api.lastReadMessageId = 'm99';
         MarkAsReadResult? lastResult;
         await _pumpMarkAsRead(
@@ -118,7 +120,7 @@ void main() {
         await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
         await tester.pumpAndSettle();
 
-        expect(lastResult?.firstUnreadIndex, isNull);
+        expect(lastResult?.firstUnreadIndex, 2);
       });
     });
 
@@ -243,7 +245,7 @@ void main() {
     });
 
     group('fetching last read', () {
-      testWidgets('re-fetches when message count changes', (tester) async {
+      testWidgets('re-fetches when message count changes after debounce', (tester) async {
         _api.lastReadMessageId = 'm1';
         MarkAsReadResult? lastResult;
         await _pumpMarkAsRead(
@@ -263,11 +265,14 @@ void main() {
           messageIds: ['m4', 'm3', 'm2', 'm1'],
           onResult: (r) => lastResult = r,
         );
+        // Advance past the 1-second debounce to fire the Timer callback.
+        await tester.pump(const Duration(seconds: 2));
+        // Let the async FFI fetch complete.
         await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
         await tester.pumpAndSettle();
 
-        expect(lastResult?.firstUnreadIndex, 0);
         expect(_api.getAccountGroupCallCount, 2);
+        expect(lastResult?.firstUnreadIndex, 0);
       });
     });
   });

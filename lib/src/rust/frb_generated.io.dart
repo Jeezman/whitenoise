@@ -272,6 +272,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ChatListUpdate dco_decode_box_autoadd_chat_list_update(dynamic raw);
 
   @protected
+  ChatMessage dco_decode_box_autoadd_chat_message(dynamic raw);
+
+  @protected
   ChatMessageSummary dco_decode_box_autoadd_chat_message_summary(dynamic raw);
 
   @protected
@@ -305,6 +308,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   MessageUpdate dco_decode_box_autoadd_message_update(dynamic raw);
+
+  @protected
+  int dco_decode_box_autoadd_u_32(dynamic raw);
 
   @protected
   User dco_decode_box_autoadd_user(dynamic raw);
@@ -498,6 +504,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
 
   @protected
+  ChatMessage? dco_decode_opt_box_autoadd_chat_message(dynamic raw);
+
+  @protected
   ChatMessageSummary? dco_decode_opt_box_autoadd_chat_message_summary(
     dynamic raw,
   );
@@ -516,6 +525,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
+
+  @protected
+  int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
 
   @protected
   List<Tag>?
@@ -811,6 +823,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  ChatMessage sse_decode_box_autoadd_chat_message(SseDeserializer deserializer);
+
+  @protected
   ChatMessageSummary sse_decode_box_autoadd_chat_message_summary(
     SseDeserializer deserializer,
   );
@@ -858,6 +873,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MessageUpdate sse_decode_box_autoadd_message_update(
     SseDeserializer deserializer,
   );
+
+  @protected
+  int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
   User sse_decode_box_autoadd_user(SseDeserializer deserializer);
@@ -1089,6 +1107,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
 
   @protected
+  ChatMessage? sse_decode_opt_box_autoadd_chat_message(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ChatMessageSummary? sse_decode_opt_box_autoadd_chat_message_summary(
     SseDeserializer deserializer,
   );
@@ -1113,6 +1136,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer);
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
   List<Tag>?
@@ -1465,6 +1491,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_chat_message(
+    ChatMessage self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_chat_message_summary(
     ChatMessageSummary self,
     SseSerializer serializer,
@@ -1523,6 +1555,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     MessageUpdate self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_box_autoadd_user(User self, SseSerializer serializer);
@@ -1816,6 +1851,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_chat_message(
+    ChatMessage? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_chat_message_summary(
     ChatMessageSummary? self,
     SseSerializer serializer,
@@ -1847,6 +1888,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     PlatformInt64? self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
 
   @protected
   void

@@ -7,6 +7,7 @@ import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:whitenoise/hooks/use_mark_as_read.dart';
 
 const _bottomThreshold = 50.0;
+const _topThreshold = 200.0;
 
 typedef ChatScrollResult = ({
   bool isInitialPositionReady,
@@ -24,8 +25,15 @@ ChatScrollResult useChatScroll({
   required int messageCount,
   required String? Function(int reversedIndex) getMessageId,
   required int? Function(String messageId) getReversedIndex,
+  required bool hasMoreMessages,
+  required Future<void> Function() loadOlderMessages,
 }) {
-  final (:firstUnreadIndex, :hasLoadedLastRead, :markMessageAsRead) = useMarkAsRead(
+  final (
+    :firstUnreadIndex,
+    :hasLoadedLastRead,
+    :lastReadMessageFound,
+    :markMessageAsRead,
+  ) = useMarkAsRead(
     accountPubkey: accountPubkey,
     groupId: groupId,
     messageCount: messageCount,
@@ -33,7 +41,7 @@ ChatScrollResult useChatScroll({
   );
 
   final isAtBottom = useState(true);
-  final isScrollDownButtonVisible = useState(false);
+  final hasUnseenMessages = useState(false);
   final isInitialPositionReady = useState(false);
   final prevLatestMessageId = useRef<String?>(null);
   final shouldStayAtBottom = useRef(false);
@@ -45,6 +53,14 @@ ChatScrollResult useChatScroll({
   final getMessageIdRef = useRef(getMessageId);
   messageCountRef.value = messageCount;
   getMessageIdRef.value = getMessageId;
+
+  final isMounted = useRef(true);
+  useEffect(() {
+    isMounted.value = true;
+    return () {
+      isMounted.value = false;
+    };
+  }, []);
 
   void autoScrollToBottom() {
     SchedulerBinding.instance.addPostFrameCallback((_) {
@@ -118,8 +134,17 @@ ChatScrollResult useChatScroll({
         isAtBottom.value = atBottom;
       }
 
-      isScrollDownButtonVisible.value = firstUnreadIndex != null && !atBottom;
+      if (atBottom && hasUnseenMessages.value) {
+        hasUnseenMessages.value = false;
+      }
       hasUserScrolled.value = true;
+
+      final atTop =
+          position.maxScrollExtent > _topThreshold &&
+          position.pixels >= position.maxScrollExtent - _topThreshold;
+      if (atTop && hasMoreMessages) {
+        unawaited(loadOlderMessages());
+      }
 
       debounceTimer.value?.cancel();
       debounceTimer.value = Timer(
@@ -130,15 +155,13 @@ ChatScrollResult useChatScroll({
 
     scrollController.addListener(onScrollUpdate);
 
-    isScrollDownButtonVisible.value =
-        scrollController.hasClients &&
-        firstUnreadIndex != null &&
-        scrollController.position.pixels > _bottomThreshold;
-
     return () {
       scrollController.removeListener(onScrollUpdate);
       debounceTimer.value?.cancel();
     };
+    // hasMoreMessages and loadOlderMessages are intentionally omitted from deps.
+    // loadOlderMessages guards internally against hasMoreMessages and isLoadingOlderMessages,
+    // so a stale closure here cannot cause a runaway fetch loop.
   }, [scrollController, firstUnreadIndex]);
 
   useEffect(() {
@@ -172,38 +195,88 @@ ChatScrollResult useChatScroll({
   final isLatestMessageOwn = latestMessagePubkey == accountPubkey;
 
   useEffect(() {
-    if (latestMessageId != null && latestMessageId != prevLatestMessageId.value) {
-      final isInitialLoad = prevLatestMessageId.value == null;
+    if (!isInitialPositionReady.value) return null;
+    if (latestMessageId == null) return null;
 
-      if (isInitialLoad) {
-        if (messageCount > 0 && !hasLoadedLastRead) return null;
+    final atBottom =
+        !scrollController.hasClients || scrollController.position.pixels <= _bottomThreshold;
+    if (atBottom) {
+      markMessageAsRead(latestMessageId);
+    }
+    return null;
+  }, [isInitialPositionReady.value]);
 
-        if (firstUnreadIndex != null && !hasScrolledToUnread.value) {
-          hasScrolledToUnread.value = true;
-          SchedulerBinding.instance.addPostFrameCallback((_) async {
-            if (!scrollController.hasClients) return;
-            await scrollController.scrollToIndex(
-              firstUnreadIndex,
-              preferPosition: AutoScrollPosition.middle,
-              duration: const Duration(milliseconds: 1),
-            );
-            isInitialPositionReady.value = true;
-          });
-        } else {
+  useEffect(
+    () {
+      if (isInitialPositionReady.value) return null;
+      if (latestMessageId == null) return null;
+      if (messageCount > 0 && !hasLoadedLastRead) return null;
+
+      if (!lastReadMessageFound && hasMoreMessages) {
+        // Keep the list hidden (isInitialPositionReady = false) and fetch the next page.
+        // Once messageCount changes, this effect will re-run until we find the last read message.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!isMounted.value) return;
+          unawaited(loadOlderMessages());
+        });
+        return null;
+      }
+
+      if (firstUnreadIndex != null && !hasScrolledToUnread.value) {
+        hasScrolledToUnread.value = true;
+        SchedulerBinding.instance.addPostFrameCallback((_) async {
+          if (!isMounted.value) return;
+          if (!scrollController.hasClients) return;
+          // Use duration: 1ms to jump instantly rather than animating. We don't want a long
+          // animation if the unread message is many pages back.
+          await scrollController.scrollToIndex(
+            firstUnreadIndex,
+            preferPosition: AutoScrollPosition.middle,
+            duration: const Duration(milliseconds: 1),
+          );
+          if (!isMounted.value) return;
           isInitialPositionReady.value = true;
-        }
-      } else if (isAtBottom.value || isLatestMessageOwn) {
-        autoScrollToBottom();
+        });
+      } else {
+        isInitialPositionReady.value = true;
       }
 
       prevLatestMessageId.value = latestMessageId;
+      return null;
+    },
+    [
+      latestMessageId,
+      firstUnreadIndex,
+      hasLoadedLastRead,
+      lastReadMessageFound,
+      hasMoreMessages,
+      isInitialPositionReady.value,
+      messageCount,
+    ],
+  );
+
+  useEffect(() {
+    if (!isInitialPositionReady.value) return null;
+    if (latestMessageId == null) return null;
+    if (latestMessageId == prevLatestMessageId.value) return null;
+
+    if (isAtBottom.value || isLatestMessageOwn) {
+      autoScrollToBottom();
+    } else {
+      hasUnseenMessages.value = true;
     }
+
+    prevLatestMessageId.value = latestMessageId;
     return null;
-  }, [latestMessageId, isLatestMessageOwn, firstUnreadIndex, hasLoadedLastRead]);
+  }, [latestMessageId, isLatestMessageOwn, isInitialPositionReady.value]);
+
+  final showScrollDown =
+      isInitialPositionReady.value &&
+      (hasUnseenMessages.value || (!isAtBottom.value && firstUnreadIndex != null));
 
   return (
     isInitialPositionReady: isInitialPositionReady.value,
-    isScrollDownButtonVisible: isScrollDownButtonVisible.value,
+    isScrollDownButtonVisible: showScrollDown,
     scrollToBottom: scrollToBottom,
   );
 }

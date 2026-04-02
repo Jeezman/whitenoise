@@ -12,7 +12,6 @@ import 'media_files.dart';
 
 part 'messages.freezed.dart';
 
-// These functions are ignored because they are not marked as `pub`: `initial_aggregated_messages_page`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_receiver_is_total_eq`, `assert_receiver_is_total_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`, `from`
 
 Future<MessageWithTokens> sendMessageToGroup({
@@ -42,25 +41,82 @@ Future<void> retryMessagePublish({
   eventId: eventId,
 );
 
+/// Fetch a paginated page of messages for a group.
+///
+/// Returns messages in oldest-first order. Pass the `created_at` and `id` of the
+/// oldest message currently loaded to fetch the preceding page (infinite scroll upward).
+/// Omit `before` and `before_message_id` for the initial load.
 Future<List<ChatMessage>> fetchAggregatedMessagesForGroup({
   required String pubkey,
   required String groupId,
+  DateTime? before,
+  String? beforeMessageId,
+  int? limit,
 }) => RustLib.instance.api.crateApiMessagesFetchAggregatedMessagesForGroup(
   pubkey: pubkey,
   groupId: groupId,
+  before: before,
+  beforeMessageId: beforeMessageId,
+  limit: limit,
+);
+
+/// Fetch a single message by its event ID.
+///
+/// Returns `None` if the message does not exist in the cache.
+Future<ChatMessage?> fetchMessageById({
+  required String pubkey,
+  required String groupId,
+  required String messageId,
+}) => RustLib.instance.api.crateApiMessagesFetchMessageById(
+  pubkey: pubkey,
+  groupId: groupId,
+  messageId: messageId,
+);
+
+/// Fetch the newest messages for a group, ensuring all unread messages are included
+/// and at least `minimum` messages are returned.
+///
+/// The effective fetch size is `max(unread_count, minimum)`, so the caller always
+/// receives a full page even when there are no unread messages, and always receives
+/// every unread message when there are more unreads than the minimum.
+///
+/// Messages are returned in oldest-first order.
+Future<List<ChatMessage>> fetchMessagesUnreadWithMinimum({
+  required String pubkey,
+  required String groupId,
+  int? minimum,
+}) => RustLib.instance.api.crateApiMessagesFetchMessagesUnreadWithMinimum(
+  pubkey: pubkey,
+  groupId: groupId,
+  minimum: minimum,
 );
 
 /// Subscribe to real-time message updates for a group.
 ///
-/// The stream first emits an `InitialSnapshot` containing all current messages,
-/// then emits `Update` items as messages are added, reacted to, or deleted.
+/// The stream first emits an `InitialSnapshot`, then emits `Update` items as
+/// messages are added, reacted to, or deleted.
+///
+/// **Initial snapshot contents depend on whether `pubkey` is supplied:**
+///
+/// * **Without `pubkey`:** the snapshot contains all messages currently held by
+///   the subscription — a full current-message window.  Callers can treat it as
+///   a complete history up to the point of subscription.
+///
+/// * **With `pubkey`:** the snapshot is produced by
+///   `fetch_messages_unread_with_minimum` and is an *unread-focused* window: it
+///   always includes every unread message plus at least 50 recent messages.
+///   Callers **must not** assume the snapshot covers full history in this case;
+///   older messages are available via `fetch_aggregated_messages_for_group`.
 ///
 /// The initial snapshot is race-condition free: any updates that arrive between
 /// subscribing and fetching are merged into the snapshot.
-Stream<MessageStreamItem> subscribeToGroupMessages({required String groupId}) =>
-    RustLib.instance.api.crateApiMessagesSubscribeToGroupMessages(
-      groupId: groupId,
-    );
+Stream<MessageStreamItem> subscribeToGroupMessages({
+  String? pubkey,
+  required String groupId,
+}) => RustLib.instance.api.crateApiMessagesSubscribeToGroupMessages(
+  pubkey: pubkey,
+  groupId: groupId,
+);
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<Tag>>
 abstract class Tag implements RustOpaqueInterface {}

@@ -20,6 +20,8 @@ class _TestWidget extends HookWidget {
     this.latestMessageId,
     this.latestMessagePubkey,
     this.onResult,
+    this.hasMoreMessages = false,
+    this.loadOlderMessages,
   });
 
   final AutoScrollController scrollController;
@@ -28,6 +30,8 @@ class _TestWidget extends HookWidget {
   final String? latestMessageId;
   final String? latestMessagePubkey;
   final void Function(ChatScrollResult)? onResult;
+  final bool hasMoreMessages;
+  final Future<void> Function()? loadOlderMessages;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +48,8 @@ class _TestWidget extends HookWidget {
         final index = messageIds.indexOf(id);
         return index >= 0 ? index : null;
       },
+      hasMoreMessages: hasMoreMessages,
+      loadOlderMessages: loadOlderMessages ?? () async {},
     );
 
     onResult?.call(result);
@@ -102,6 +108,8 @@ void main() {
     String? latestMessageId,
     String? latestMessagePubkey,
     void Function(ChatScrollResult)? onResult,
+    bool hasMoreMessages = false,
+    Future<void> Function()? loadOlderMessages,
   }) async {
     final ids = messageIds ?? _generateIds(50);
     await tester.pumpWidget(
@@ -112,6 +120,8 @@ void main() {
         latestMessageId: latestMessageId,
         latestMessagePubkey: latestMessagePubkey,
         onResult: onResult,
+        hasMoreMessages: hasMoreMessages,
+        loadOlderMessages: loadOlderMessages,
       ),
     );
     await tester.pumpAndSettle();
@@ -376,15 +386,6 @@ void main() {
     });
 
     group('isScrollDownButtonVisible', () {
-      testWidgets('is false when at bottom without unread messages', (tester) async {
-        _api.lastReadMessageId = 'm50';
-        await pumpScroll(tester, latestMessageId: 'm1');
-        await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
-        await tester.pumpAndSettle();
-
-        expect(scrollController.position.pixels, 0);
-      });
-
       testWidgets('is false when at bottom', (tester) async {
         ChatScrollResult? lastResult;
         await pumpScroll(
@@ -392,6 +393,96 @@ void main() {
           messageIds: ['m3', 'm2', 'm1'],
           onResult: (r) => lastResult = r,
         );
+        await tester.pumpAndSettle();
+
+        expect(lastResult?.isScrollDownButtonVisible, false);
+      });
+
+      testWidgets('is false when scrolled up through already-read messages', (tester) async {
+        _api.lastReadMessageId = 'm50';
+        ChatScrollResult? lastResult;
+        await pumpScroll(
+          tester,
+          messageIds: _generateIds(50),
+          onResult: (r) => lastResult = r,
+        );
+        await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+        await tester.pumpAndSettle();
+
+        scrollController.jumpTo(500);
+        await tester.pumpAndSettle();
+
+        expect(lastResult?.isScrollDownButtonVisible, false);
+      });
+
+      testWidgets('shows when scrolled up with unread messages below', (tester) async {
+        _api.lastReadMessageId = 'm1';
+        ChatScrollResult? lastResult;
+
+        final ids = _generateIds(50);
+        await tester.pumpWidget(
+          _TestWidget(
+            scrollController: scrollController,
+            focusNode: focusNode,
+            messageIds: ids,
+            latestMessageId: ids.first,
+            onResult: (r) => lastResult = r,
+          ),
+        );
+        scrollController.jumpTo(500);
+        await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+        await tester.pumpAndSettle();
+
+        expect(lastResult?.isScrollDownButtonVisible, true);
+      });
+
+      testWidgets(
+        'shows when new message arrives after scroll-to-unread positions away from bottom',
+        (tester) async {
+          _api.lastReadMessageId = 'm1';
+          ChatScrollResult? lastResult;
+          final ids = _generateIds(50);
+          await pumpScroll(
+            tester,
+            messageIds: ids,
+            onResult: (r) => lastResult = r,
+          );
+          await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+          await tester.pumpAndSettle();
+
+          expect(lastResult?.isInitialPositionReady, true);
+          expect(scrollController.position.pixels, greaterThan(_withinBottomThreshold));
+
+          // New message arrives while user is scrolled to unread (not at bottom)
+          final newIds = ['m51', ...ids];
+          await tester.pumpWidget(
+            _TestWidget(
+              scrollController: scrollController,
+              focusNode: focusNode,
+              messageIds: newIds,
+              latestMessageId: 'm51',
+              onResult: (r) => lastResult = r,
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          expect(lastResult?.isScrollDownButtonVisible, true);
+        },
+      );
+
+      testWidgets('is false again after scrolling back to bottom', (tester) async {
+        ChatScrollResult? lastResult;
+        await pumpScroll(
+          tester,
+          messageIds: _generateIds(50),
+          onResult: (r) => lastResult = r,
+        );
+        await tester.pumpAndSettle();
+
+        scrollController.jumpTo(500);
+        await tester.pumpAndSettle();
+
+        scrollController.jumpTo(0);
         await tester.pumpAndSettle();
 
         expect(lastResult?.isScrollDownButtonVisible, false);
@@ -505,6 +596,149 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(scrollController.position.pixels, 0);
+      });
+    });
+
+    group('pagination to find unread position', () {
+      testWidgets('calls loadOlderMessages when last-read message is not in loaded set', (
+        tester,
+      ) async {
+        _api.lastReadMessageId = 'm99';
+        var loadCallCount = 0;
+        await pumpScroll(
+          tester,
+          messageIds: _generateIds(5),
+          hasMoreMessages: true,
+          loadOlderMessages: () async {
+            loadCallCount++;
+          },
+        );
+        await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+        await tester.pumpAndSettle();
+
+        expect(loadCallCount, greaterThanOrEqualTo(1));
+      });
+
+      testWidgets('does not paginate when last-read message is in loaded set', (tester) async {
+        _api.lastReadMessageId = 'm3';
+        var loadCallCount = 0;
+        await pumpScroll(
+          tester,
+          messageIds: _generateIds(5),
+          hasMoreMessages: true,
+          loadOlderMessages: () async {
+            loadCallCount++;
+          },
+        );
+        await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+        await tester.pumpAndSettle();
+
+        expect(loadCallCount, 0);
+      });
+
+      testWidgets(
+        'defers scroll until last-read message is found or history exhausted',
+        (
+          tester,
+        ) async {
+          _api.lastReadMessageId = 'm6';
+          ChatScrollResult? lastResult;
+
+          // Initial state: messages m1-m5 are loaded. last-read is m6.
+          // It should NOT scroll yet, and isInitialPositionReady should be false.
+          var messageIds = _generateIds(5); // ['m5', 'm4', 'm3', 'm2', 'm1']
+          var hasMore = true;
+
+          await pumpScroll(
+            tester,
+            messageIds: messageIds,
+            hasMoreMessages: hasMore,
+            onResult: (r) => lastResult = r,
+            loadOlderMessages: () async {},
+          );
+          await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+          await tester.pumpAndSettle();
+
+          expect(lastResult?.isInitialPositionReady, false);
+          expect(scrollController.position.pixels, 0); // Not scrolled
+
+          // Simulate pagination completing: we load m6-m10.
+          // Now last-read is in the loaded set.
+          messageIds = ['m10', 'm9', 'm8', 'm7', 'm6', 'm5', 'm4', 'm3', 'm2', 'm1'];
+          hasMore = false;
+
+          await pumpScroll(
+            tester,
+            messageIds: messageIds,
+            hasMoreMessages: hasMore,
+            onResult: (r) => lastResult = r,
+            loadOlderMessages: () async {},
+          );
+          await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+          await tester.pumpAndSettle();
+
+          expect(lastResult?.isInitialPositionReady, true);
+          expect(scrollController.position.pixels, greaterThan(0)); // Scrolled to unread
+        },
+      );
+
+      testWidgets('does not paginate when no more messages', (tester) async {
+        _api.lastReadMessageId = 'm99';
+        var loadCallCount = 0;
+        await pumpScroll(
+          tester,
+          messageIds: _generateIds(5),
+          loadOlderMessages: () async {
+            loadCallCount++;
+          },
+        );
+        await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+        await tester.pumpAndSettle();
+
+        expect(loadCallCount, 0);
+      });
+    });
+
+    group('scroll-to-top triggers loadOlderMessages', () {
+      testWidgets('calls loadOlderMessages when scrolled to top with hasMoreMessages=true', (
+        tester,
+      ) async {
+        _api.lastReadMessageId = 'm50';
+        var loadCalled = false;
+        await pumpScroll(
+          tester,
+          messageIds: _generateIds(50),
+          hasMoreMessages: true,
+          loadOlderMessages: () async {
+            loadCalled = true;
+          },
+        );
+        await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+        await tester.pumpAndSettle();
+
+        scrollController.jumpTo(scrollController.position.maxScrollExtent);
+        await tester.pumpAndSettle();
+
+        expect(loadCalled, isTrue);
+      });
+
+      testWidgets('does not call loadOlderMessages when hasMoreMessages=false', (tester) async {
+        _api.lastReadMessageId = 'm50';
+        var loadCalled = false;
+        await pumpScroll(
+          tester,
+          messageIds: _generateIds(50),
+          loadOlderMessages: () async {
+            loadCalled = true;
+          },
+        );
+        await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+        await tester.pumpAndSettle();
+
+        scrollController.jumpTo(scrollController.position.maxScrollExtent);
+        await tester.pumpAndSettle();
+
+        expect(loadCalled, isFalse);
       });
     });
   });

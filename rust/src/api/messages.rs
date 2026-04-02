@@ -416,24 +416,38 @@ pub async fn retry_message_publish(
     Ok(())
 }
 
-fn initial_aggregated_messages_page() -> (Option<Timestamp>, Option<String>, Option<u32>) {
-    (None, None, None)
-}
-
+/// Fetch a paginated page of messages for a group.
+///
+/// Returns messages in oldest-first order. Pass the `created_at` and `id` of the
+/// oldest message currently loaded to fetch the preceding page (infinite scroll upward).
+/// Omit `before` and `before_message_id` for the initial load.
 #[frb]
 pub async fn fetch_aggregated_messages_for_group(
     pubkey: String,
     group_id: String,
+    before: Option<DateTime<Utc>>,
+    before_message_id: Option<String>,
+    limit: Option<u32>,
 ) -> Result<Vec<ChatMessage>, ApiError> {
     let whitenoise = Whitenoise::get_instance()?;
     let pubkey = PublicKey::parse(&pubkey)?;
     let group_id = group_id_from_string(&group_id)?;
-    let (before, before_message_id, limit) = initial_aggregated_messages_page();
+    let before_ts = before
+        .map(|dt| {
+            let ts = dt.timestamp();
+            if ts < 0 {
+                return Err(ApiError::Other {
+                    message: format!("invalid cursor: before timestamp {ts} is before Unix epoch"),
+                });
+            }
+            Ok(Timestamp::from(ts as u64))
+        })
+        .transpose()?;
     let messages = whitenoise
         .fetch_aggregated_messages_for_group(
             &pubkey,
             &group_id,
-            before,
+            before_ts,
             before_message_id.as_deref(),
             limit,
         )
@@ -441,15 +455,69 @@ pub async fn fetch_aggregated_messages_for_group(
     Ok(messages.into_iter().map(|m| m.into()).collect())
 }
 
+/// Fetch a single message by its event ID.
+///
+/// Returns `None` if the message does not exist in the cache.
+#[frb]
+pub async fn fetch_message_by_id(
+    pubkey: String,
+    group_id: String,
+    message_id: String,
+) -> Result<Option<ChatMessage>, ApiError> {
+    let whitenoise = Whitenoise::get_instance()?;
+    let pubkey = PublicKey::parse(&pubkey)?;
+    let group_id = group_id_from_string(&group_id)?;
+    let message = whitenoise
+        .fetch_message_by_id(&pubkey, &group_id, &message_id)
+        .await?;
+    Ok(message.map(|m| m.into()))
+}
+
+/// Fetch the newest messages for a group, ensuring all unread messages are included
+/// and at least `minimum` messages are returned.
+///
+/// The effective fetch size is `max(unread_count, minimum)`, so the caller always
+/// receives a full page even when there are no unread messages, and always receives
+/// every unread message when there are more unreads than the minimum.
+///
+/// Messages are returned in oldest-first order.
+#[frb]
+pub async fn fetch_messages_unread_with_minimum(
+    pubkey: String,
+    group_id: String,
+    minimum: Option<u32>,
+) -> Result<Vec<ChatMessage>, ApiError> {
+    let whitenoise = Whitenoise::get_instance()?;
+    let pubkey = PublicKey::parse(&pubkey)?;
+    let group_id = group_id_from_string(&group_id)?;
+    let messages = whitenoise
+        .fetch_messages_unread_with_minimum(&pubkey, &group_id, minimum)
+        .await?;
+    Ok(messages.into_iter().map(|m| m.into()).collect())
+}
+
 /// Subscribe to real-time message updates for a group.
 ///
-/// The stream first emits an `InitialSnapshot` containing all current messages,
-/// then emits `Update` items as messages are added, reacted to, or deleted.
+/// The stream first emits an `InitialSnapshot`, then emits `Update` items as
+/// messages are added, reacted to, or deleted.
+///
+/// **Initial snapshot contents depend on whether `pubkey` is supplied:**
+///
+/// * **Without `pubkey`:** the snapshot contains all messages currently held by
+///   the subscription — a full current-message window.  Callers can treat it as
+///   a complete history up to the point of subscription.
+///
+/// * **With `pubkey`:** the snapshot is produced by
+///   `fetch_messages_unread_with_minimum` and is an *unread-focused* window: it
+///   always includes every unread message plus at least 50 recent messages.
+///   Callers **must not** assume the snapshot covers full history in this case;
+///   older messages are available via `fetch_aggregated_messages_for_group`.
 ///
 /// The initial snapshot is race-condition free: any updates that arrive between
 /// subscribing and fetching are merged into the snapshot.
 #[frb]
 pub async fn subscribe_to_group_messages(
+    pubkey: Option<String>,
     group_id: String,
     sink: StreamSink<MessageStreamItem>,
 ) -> Result<(), ApiError> {
@@ -459,16 +527,39 @@ pub async fn subscribe_to_group_messages(
 
     info!(group_id = %group_id_str, "subscribe_to_group_messages: subscribing");
 
+    let parsed_pubkey = pubkey.as_deref().map(PublicKey::parse).transpose()?;
+
     let subscription = whitenoise
         .subscribe_to_group_messages(&group_id, None)
         .await?;
 
+    // When a pubkey is provided, replace the subscription's initial snapshot with an
+    // unread-aware fetch so the caller always receives every unread message plus at
+    // least 50 recent ones — eliminating backwards pagination just to find the read
+    // marker.  The subscription was created first (above) so any concurrent updates
+    // that arrived during the fetch will arrive on `subscription.updates`.
+    let raw_initial: Vec<WhitenoiseChatMessage> = match parsed_pubkey {
+        Some(ref pk) => match whitenoise
+            .fetch_messages_unread_with_minimum(pk, &group_id, None)
+            .await
+        {
+            Ok(messages) => messages,
+            Err(e) => {
+                warn!(
+                    group_id = %group_id_str,
+                    pubkey = %pk.to_hex(),
+                    error = %e,
+                    "subscribe_to_group_messages: fetch_messages_unread_with_minimum failed, \
+                     falling back to subscription initial_messages"
+                );
+                subscription.initial_messages
+            }
+        },
+        None => subscription.initial_messages,
+    };
+
     // Emit initial snapshot first
-    let initial_messages: Vec<ChatMessage> = subscription
-        .initial_messages
-        .into_iter()
-        .map(|m| m.into())
-        .collect();
+    let initial_messages: Vec<ChatMessage> = raw_initial.into_iter().map(|m| m.into()).collect();
 
     info!(
         group_id = %group_id_str,
@@ -589,14 +680,5 @@ mod tests {
     fn test_delivery_status_conversion_retried() {
         let status: DeliveryStatus = WhitenoiseDeliveryStatus::Retried.into();
         assert_eq!(status, DeliveryStatus::Retried);
-    }
-
-    #[test]
-    fn test_initial_aggregated_messages_page_has_no_cursor() {
-        let (before, before_message_id, limit) = initial_aggregated_messages_page();
-
-        assert_eq!(before, None);
-        assert_eq!(before_message_id, None);
-        assert_eq!(limit, None);
     }
 }

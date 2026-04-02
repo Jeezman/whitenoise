@@ -28,6 +28,7 @@ ChatMessage _message(
   bool isDeleted = false,
   bool isReply = false,
   String? replyToId,
+  String? content,
   List<List<String>> tags = const [],
   List<SerializableToken> contentTokens = const [],
   ReactionSummary reactions = const ReactionSummary(byEmoji: [], userReactions: []),
@@ -35,7 +36,7 @@ ChatMessage _message(
 }) => ChatMessage(
   id: id,
   pubkey: pubkey,
-  content: 'Content of $id',
+  content: content ?? 'Content of $id',
   createdAt: createdAt,
   tags: tags,
   isReply: isReply,
@@ -51,6 +52,7 @@ class _MockApi extends MockWnApi {
   StreamController<MessageStreamItem>? controller;
   List<ChatMessage> initialMessages = [];
   bool shouldFailRatchetTree = false;
+  int fetchOlderCallCount = 0;
 
   @override
   void reset() {
@@ -59,10 +61,24 @@ class _MockApi extends MockWnApi {
     controller = null;
     initialMessages = [];
     shouldFailRatchetTree = false;
+    fetchOlderCallCount = 0;
+  }
+
+  @override
+  Future<List<ChatMessage>> crateApiMessagesFetchAggregatedMessagesForGroup({
+    required String pubkey,
+    required String groupId,
+    DateTime? before,
+    String? beforeMessageId,
+    int? limit,
+  }) async {
+    fetchOlderCallCount++;
+    return [];
   }
 
   @override
   Stream<MessageStreamItem> crateApiMessagesSubscribeToGroupMessages({
+    String? pubkey,
     required String groupId,
   }) {
     controller?.close();
@@ -272,6 +288,47 @@ void main() {
       expect(find.textContaining('STARTED len='), findsWidgets);
       expect(find.textContaining('FAILED len='), findsOneWidget);
       expect(find.text('+1 more entries'), findsOneWidget);
+    });
+
+    testWidgets('stream log renders pageFetch entry with truncated cursor and all fields', (
+      tester,
+    ) async {
+      final now = DateTime(2026, 1, 1, 10);
+      // messageId is > 8 chars to exercise the truncation branch in _formatStreamEvent.
+      const longMessageId = 'abcdef1234567890';
+      _seededDebugState = MessageDebugLogState(
+        sendLog: const [],
+        streamLog: [
+          MessageStreamEventEntry(
+            timestamp: now,
+            groupId: _testGroupId,
+            eventType: MessageStreamEventType.pageFetch,
+            trigger: 'prepended',
+            messageId: longMessageId,
+            messageCount: 3,
+            laggedCount: 10,
+            error: 'fetch error',
+          ),
+        ],
+      );
+
+      await pumpDebugScreen(
+        tester,
+        overrides: [messageDebugLogProvider.overrideWith(_SeededMessageDebugLogNotifier.new)],
+      );
+
+      await tester.scrollUntilVisible(
+        find.text('Stream Log'),
+        220,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      // outcome=, cursor= (truncated to first 8 chars + ellipsis), new=, total=, error=
+      expect(find.textContaining('outcome=prepended'), findsOneWidget);
+      expect(find.textContaining('cursor=${longMessageId.substring(0, 8)}…'), findsOneWidget);
+      expect(find.textContaining('new=3'), findsOneWidget);
+      expect(find.textContaining('total=10'), findsOneWidget);
+      expect(find.textContaining('error=fetch error'), findsOneWidget);
     });
 
     testWidgets('renders seeded stream log entries and overflow indicator', (tester) async {
@@ -612,6 +669,112 @@ void main() {
       expect(find.textContaining('count=2'), findsOneWidget);
       expect(find.textContaining('raw user reactions'), findsOneWidget);
       expect(find.textContaining('reaction_001'), findsOneWidget);
+    });
+
+    testWidgets('message card renders content tokens with content', (tester) async {
+      final now = DateTime(2024, 1, 15, 12);
+      _api.initialMessages = [
+        _message(
+          'token_msg',
+          now,
+          contentTokens: const [
+            SerializableToken(tokenType: 'text', content: 'hello world'),
+            SerializableToken(tokenType: 'mention'),
+          ],
+        ),
+      ];
+
+      await pumpDebugScreen(tester);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('raw_message_card_token_msg')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      expect(find.textContaining('[text] hello world'), findsOneWidget);
+      expect(find.textContaining('[mention]'), findsOneWidget);
+    });
+
+    testWidgets('message card renders media with all optional fields', (tester) async {
+      final now = DateTime(2024, 1, 15, 12);
+      _api.initialMessages = [
+        _message(
+          'full_media_msg',
+          now,
+          mediaAttachments: [
+            MediaFile(
+              id: 'file_full',
+              mlsGroupId: _testGroupId,
+              accountPubkey: testPubkeyA,
+              filePath: '/tmp/full.jpg',
+              encryptedFileHash: 'enc_hash',
+              originalFileHash: 'orig_hash',
+              mimeType: 'image/jpeg',
+              mediaType: 'image',
+              blossomUrl: 'https://example.com/full.jpg',
+              nostrKey: 'nostr_key',
+              nonce: 'nonce_abc',
+              schemeVersion: '1',
+              fileMetadata: const FileMetadata(
+                originalFilename: 'photo.jpg',
+                dimensions: '1920x1080',
+                blurhash: 'L6PZfSi_.AyE',
+              ),
+              createdAt: now,
+            ),
+          ],
+        ),
+      ];
+
+      await pumpDebugScreen(tester);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('raw_message_card_full_media_msg')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      expect(find.textContaining('original_hash:'), findsWidgets);
+      expect(find.textContaining('nonce:'), findsWidgets);
+      expect(find.textContaining('scheme_version:'), findsWidgets);
+      expect(find.textContaining('filename:'), findsWidgets);
+      expect(find.textContaining('dimensions:'), findsWidgets);
+      expect(find.textContaining('blurhash:'), findsWidgets);
+    });
+
+    testWidgets('message card truncates content longer than 110 characters', (tester) async {
+      final now = DateTime(2024, 1, 15, 12);
+      final longContent = 'A' * 120;
+      _api.initialMessages = [
+        _message('long_msg', now, content: longContent),
+      ];
+
+      await pumpDebugScreen(tester);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('raw_message_card_long_msg')),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      expect(find.textContaining('${'A' * 110}…'), findsWidgets);
+    });
+
+    testWidgets('scrolling to end of list triggers loadOlderMessages', (tester) async {
+      final now = DateTime(2024, 1, 15, 12);
+      _api.initialMessages = List.generate(
+        10,
+        (i) => _message('msg$i', now.add(Duration(minutes: i))),
+      );
+
+      await pumpDebugScreen(tester);
+
+      // Precondition: no fetch has occurred yet — proves the drag below is the cause.
+      expect(_api.fetchOlderCallCount, 0);
+
+      final scrollable = find.byType(Scrollable).first;
+      await tester.drag(scrollable, const Offset(0, -5000));
+      await tester.pumpAndSettle();
+
+      expect(_api.fetchOlderCallCount, greaterThan(0));
     });
   });
 }

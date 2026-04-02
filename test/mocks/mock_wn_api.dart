@@ -281,8 +281,20 @@ class MockWnApi implements RustLibApi {
   Future<List<ChatMessage>> crateApiMessagesFetchAggregatedMessagesForGroup({
     required String pubkey,
     required String groupId,
+    DateTime? before,
+    String? beforeMessageId,
+    int? limit,
   }) async {
     return [];
+  }
+
+  @override
+  Future<ChatMessage?> crateApiMessagesFetchMessageById({
+    required String pubkey,
+    required String groupId,
+    required String messageId,
+  }) async {
+    return null;
   }
 
   @override
@@ -321,7 +333,17 @@ class MockWnApi implements RustLibApi {
   }
 
   @override
+  Future<List<ChatMessage>> crateApiMessagesFetchMessagesUnreadWithMinimum({
+    required String pubkey,
+    required String groupId,
+    int? minimum,
+  }) async {
+    return [];
+  }
+
+  @override
   Stream<MessageStreamItem> crateApiMessagesSubscribeToGroupMessages({
+    String? pubkey,
     required String groupId,
   }) {
     return Stream.value(const MessageStreamItem.initialSnapshot(messages: []));

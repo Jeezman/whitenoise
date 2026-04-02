@@ -97,6 +97,7 @@ class _MockApi extends MockWnApi {
   List<String> groupMembers = [];
   Completer<MediaFile>? uploadCompleter;
   Map<String, FlutterMetadata>? metadataByPubkey;
+  Completer<List<ChatMessage>>? fetchOlderCompleter;
   DateTime? removedAt;
 
   @override
@@ -120,7 +121,20 @@ class _MockApi extends MockWnApi {
     groupMembers = [];
     uploadCompleter = null;
     metadataByPubkey = null;
+    fetchOlderCompleter = null;
     removedAt = null;
+  }
+
+  @override
+  Future<List<ChatMessage>> crateApiMessagesFetchAggregatedMessagesForGroup({
+    required String pubkey,
+    required String groupId,
+    DateTime? before,
+    String? beforeMessageId,
+    int? limit,
+  }) {
+    if (fetchOlderCompleter != null) return fetchOlderCompleter!.future;
+    return Future.value([]);
   }
 
   @override
@@ -204,6 +218,7 @@ class _MockApi extends MockWnApi {
 
   @override
   Stream<MessageStreamItem> crateApiMessagesSubscribeToGroupMessages({
+    String? pubkey,
     required String groupId,
   }) {
     controller?.close();
@@ -400,6 +415,44 @@ void main() {
         await pumpChatScreen(tester);
 
         expect(find.text('No messages yet'), findsOneWidget);
+      });
+    });
+
+    group('loading older messages indicator', () {
+      testWidgets('hidden when not loading older messages', (tester) async {
+        _api.initialMessages = [_message('m1', DateTime(2024))];
+        await pumpChatScreen(tester);
+
+        expect(find.byKey(const Key('loading_older_messages_indicator')), findsNothing);
+      });
+
+      testWidgets('visible while older messages are being fetched', (tester) async {
+        // Use enough messages to create a scrollable list with sufficient height so
+        // the top-threshold scroll listener fires when scrolled to the oldest end.
+        _api.initialMessages = List.generate(
+          20,
+          (i) => _message('m$i', DateTime(2024, 1, i + 1)),
+        );
+        _api.lastReadMessageId = 'm19';
+        final completer = Completer<List<ChatMessage>>();
+        _api.fetchOlderCompleter = completer;
+        await pumpChatScreen(tester);
+        await tester.pumpAndSettle();
+
+        // The list is reversed (newest at pixels=0). Scroll to maxScrollExtent
+        // (oldest end) to cross the top-threshold and trigger loadOlderMessages.
+        final position = Scrollable.of(tester.element(find.byType(WnMessageBubble).first)).position;
+        position.jumpTo(position.maxScrollExtent);
+        // Notify listeners manually since jumpTo in tests does not always fire them.
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.byKey(const Key('loading_older_messages_indicator')), findsOneWidget);
+
+        completer.complete([]);
+        await tester.pumpAndSettle();
+
+        expect(find.byKey(const Key('loading_older_messages_indicator')), findsNothing);
       });
     });
 
@@ -1502,7 +1555,7 @@ void main() {
         expect(find.byKey(const Key('scroll_down_button')), findsOneWidget);
       });
 
-      testWidgets('hidden when all messages are read', (tester) async {
+      testWidgets('hidden when scrolled up with all messages already read', (tester) async {
         await pumpChatScreen(tester);
         await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
         await tester.pumpAndSettle();

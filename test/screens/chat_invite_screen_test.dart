@@ -34,11 +34,12 @@ ChatMessage _message(
   String? replyToId,
   String pubkey = testPubkeyB,
   String content = '',
+  DateTime? createdAt,
 }) => ChatMessage(
   id: id,
   pubkey: pubkey,
   content: content.isEmpty ? 'Message $id' : content,
-  createdAt: DateTime(2024),
+  createdAt: createdAt ?? DateTime(2024),
   tags: const [],
   isReply: isReply,
   replyToId: replyToId,
@@ -67,6 +68,9 @@ class _MockApi extends MockWnApi {
   bool isDm = false;
   List<String> groupMembers = [];
   String? welcomerPubkey;
+  List<List<ChatMessage>> olderMessagePages = [];
+  int _fetchPageIndex = 0;
+  int fetchOlderCallCount = 0;
 
   @override
   void reset() {
@@ -82,6 +86,9 @@ class _MockApi extends MockWnApi {
     isDm = false;
     groupMembers = [];
     welcomerPubkey = null;
+    olderMessagePages = [];
+    _fetchPageIndex = 0;
+    fetchOlderCallCount = 0;
   }
 
   void emitMessage(ChatMessage message) {
@@ -90,6 +97,21 @@ class _MockApi extends MockWnApi {
         update: MessageUpdate(trigger: UpdateTrigger.newMessage, message: message),
       ),
     );
+  }
+
+  @override
+  Future<List<ChatMessage>> crateApiMessagesFetchAggregatedMessagesForGroup({
+    required String pubkey,
+    required String groupId,
+    DateTime? before,
+    String? beforeMessageId,
+    int? limit,
+  }) async {
+    fetchOlderCallCount++;
+    if (_fetchPageIndex < olderMessagePages.length) {
+      return olderMessagePages[_fetchPageIndex++];
+    }
+    return [];
   }
 
   @override
@@ -102,6 +124,7 @@ class _MockApi extends MockWnApi {
 
   @override
   Stream<MessageStreamItem> crateApiMessagesSubscribeToGroupMessages({
+    String? pubkey,
     required String groupId,
   }) {
     controller?.close();
@@ -394,6 +417,55 @@ void main() {
       });
     });
 
+    group('initial snapshot', () {
+      testWidgets('displays all messages from the initial snapshot without pagination', (
+        tester,
+      ) async {
+        _api.initialMessages = [
+          _message('m1', content: 'First ever message', createdAt: DateTime(2024)),
+          _message('m2', createdAt: DateTime(2024, 1, 2)),
+          _message('m3', createdAt: DateTime(2024, 1, 3)),
+          _message('m4', createdAt: DateTime(2024, 1, 4)),
+        ];
+        await pumpInviteScreen(tester);
+
+        expect(_api.fetchOlderCallCount, 0);
+        expect(find.textContaining('First ever message'), findsOneWidget);
+
+        // Scroll the message list; scroll-triggered pagination must not fire.
+        await tester.drag(find.byType(WnMessageBubble).first, const Offset(0, 500));
+        await tester.pumpAndSettle();
+
+        expect(_api.fetchOlderCallCount, 0);
+        expect(find.textContaining('First ever message'), findsOneWidget);
+      });
+
+      testWidgets('displays all messages from a large initial snapshot without pagination', (
+        tester,
+      ) async {
+        _api.initialMessages = [
+          _message('m1', content: 'Very first', createdAt: DateTime(2024)),
+          _message('m2', createdAt: DateTime(2024, 1, 2)),
+          _message('m3', createdAt: DateTime(2024, 1, 3)),
+          _message('m4', createdAt: DateTime(2024, 1, 4)),
+          _message('m5', createdAt: DateTime(2024, 1, 5)),
+        ];
+        await pumpInviteScreen(tester);
+
+        expect(_api.fetchOlderCallCount, 0);
+        expect(find.byType(WnMessageBubble), findsNWidgets(5));
+        expect(find.textContaining('Very first'), findsOneWidget);
+
+        // Scroll the message list; scroll-triggered pagination must not fire.
+        await tester.drag(find.byType(WnMessageBubble).first, const Offset(0, 500));
+        await tester.pumpAndSettle();
+
+        expect(_api.fetchOlderCallCount, 0);
+        expect(find.byType(WnMessageBubble), findsNWidgets(5));
+        expect(find.textContaining('Very first'), findsOneWidget);
+      });
+    });
+
     group('reply previews', () {
       testWidgets('displays reply preview when message is a reply', (tester) async {
         _api.initialMessages = [
@@ -545,21 +617,13 @@ void main() {
         expect(find.textContaining('Failed to accept'), findsOneWidget);
       });
 
-      testWidgets('marks latest message as read', (tester) async {
+      testWidgets('does not mark messages as read synchronously on accept', (tester) async {
         _api.initialMessages = [_message('m1'), _message('m2')];
         await pumpInviteScreen(tester);
         _api.markedAsReadMessages.clear();
         await tester.tap(find.text('Accept'));
-        await tester.pumpAndSettle();
-
-        expect(_api.markedAsReadMessages, contains('m2'));
-      });
-
-      testWidgets('does not mark as read when no messages', (tester) async {
-        await pumpInviteScreen(tester);
-        _api.markedAsReadMessages.clear();
-        await tester.tap(find.text('Accept'));
-        await tester.pumpAndSettle();
+        // Pump one frame only — before async effects in the navigated screen settle
+        await tester.pump();
 
         expect(_api.markedAsReadMessages, isEmpty);
       });
@@ -603,6 +667,35 @@ void main() {
 
         expect(find.byType(WnSystemNotice), findsOneWidget);
         expect(find.textContaining('Failed to decline'), findsOneWidget);
+      });
+    });
+
+    group('read marking', () {
+      testWidgets('marks last visible message as read on scroll', (tester) async {
+        _api.initialMessages = List.generate(
+          20,
+          (i) => _message('m$i', createdAt: DateTime(2024, 1, i + 1)),
+        );
+        await pumpInviteScreen(tester);
+        _api.markedAsReadMessages.clear();
+
+        final listFinder = find.byType(ListView);
+        await tester.drag(listFinder, const Offset(0, -500));
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpAndSettle();
+
+        expect(_api.markedAsReadMessages, isNotEmpty);
+      });
+
+      testWidgets('does not mark messages as read without scrolling', (tester) async {
+        _api.initialMessages = [_message('m1'), _message('m2')];
+        await pumpInviteScreen(tester);
+        _api.markedAsReadMessages.clear();
+
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpAndSettle();
+
+        expect(_api.markedAsReadMessages, isEmpty);
       });
     });
 

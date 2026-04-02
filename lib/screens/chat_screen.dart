@@ -64,12 +64,16 @@ class ChatScreen extends HookConsumerWidget {
       :getReversedMessageIndex,
       :getMessageById,
       :isLoading,
+      :isLoadingOlderMessages,
+      :hasMoreMessages,
+      :loadOlderMessages,
       :latestMessageId,
       :latestMessagePubkey,
       :getChatMessageQuote,
       :getAuthorMetadata,
     ) = useChatMessages(
       groupId,
+      pubkey: pubkey,
       debugLog: debugLog,
     );
     final chatProfile = useChatProfile(context, pubkey, groupId);
@@ -145,6 +149,8 @@ class ChatScreen extends HookConsumerWidget {
       messageCount: messageCount,
       getMessageId: getMessageIdByIndex,
       getReversedIndex: getReversedMessageIndex,
+      hasMoreMessages: hasMoreMessages,
+      loadOlderMessages: loadOlderMessages,
     );
 
     Future<void> sendMessage(
@@ -219,9 +225,8 @@ class ChatScreen extends HookConsumerWidget {
     final slateTopPadding = safeAreaTop + _slateHeight.h + searchBarHeight;
     final listBottomPadding = inputAreaHeight.value + safeAreaBottom + 12.h;
 
-    final allMessages = List.generate(messageCount, getMessage);
     final displayMessages = isSearchActive.value
-        ? filterMessagesBySearch(allMessages, searchQuery.value)
+        ? filterMessagesBySearch(List.generate(messageCount, getMessage), searchQuery.value)
         : null;
     final displayCount = displayMessages?.length ?? messageCount;
     final currentMatchIndex = useState(0);
@@ -491,6 +496,31 @@ class ChatScreen extends HookConsumerWidget {
                 color: colors.backgroundPrimary,
                 height: safeAreaBottom,
               ),
+              if (isLoadingOlderMessages)
+                Positioned(
+                  key: const Key('loading_older_messages_indicator'),
+                  top: slateTopPadding + 8.h,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                      decoration: BoxDecoration(
+                        color: colors.backgroundSecondary,
+                        borderRadius: BorderRadius.circular(999.r),
+                      ),
+                      child: SizedBox(
+                        width: 16.w,
+                        height: 16.w,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          strokeCap: StrokeCap.round,
+                          color: colors.backgroundContentSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               if (chatScroll.isScrollDownButtonVisible)
                 Positioned(
                   bottom: inputAreaHeight.value + safeAreaBottom + 8.h,
