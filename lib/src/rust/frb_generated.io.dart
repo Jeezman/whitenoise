@@ -310,6 +310,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   MessageUpdate dco_decode_box_autoadd_message_update(dynamic raw);
 
   @protected
+  PushRegistration dco_decode_box_autoadd_push_registration(dynamic raw);
+
+  @protected
   int dco_decode_box_autoadd_u_32(dynamic raw);
 
   @protected
@@ -527,6 +530,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
 
   @protected
+  PushRegistration? dco_decode_opt_box_autoadd_push_registration(dynamic raw);
+
+  @protected
   int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
 
   @protected
@@ -543,6 +549,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   U8Array32? dco_decode_opt_u_8_array_32(dynamic raw);
+
+  @protected
+  PushPlatform dco_decode_push_platform(dynamic raw);
+
+  @protected
+  PushRegistration dco_decode_push_registration(dynamic raw);
 
   @protected
   RatchetTreeInfo dco_decode_ratchet_tree_info(dynamic raw);
@@ -875,6 +887,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  PushRegistration sse_decode_box_autoadd_push_registration(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
@@ -1138,6 +1155,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer);
 
   @protected
+  PushRegistration? sse_decode_opt_box_autoadd_push_registration(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
@@ -1154,6 +1176,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   U8Array32? sse_decode_opt_u_8_array_32(SseDeserializer deserializer);
+
+  @protected
+  PushPlatform sse_decode_push_platform(SseDeserializer deserializer);
+
+  @protected
+  PushRegistration sse_decode_push_registration(SseDeserializer deserializer);
 
   @protected
   RatchetTreeInfo sse_decode_ratchet_tree_info(SseDeserializer deserializer);
@@ -1557,6 +1585,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_push_registration(
+    PushRegistration self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
 
   @protected
@@ -1890,6 +1924,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_push_registration(
+    PushRegistration? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
 
   @protected
@@ -1907,6 +1947,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_u_8_array_32(U8Array32? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_push_platform(PushPlatform self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_push_registration(
+    PushRegistration self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_ratchet_tree_info(
