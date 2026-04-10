@@ -21,64 +21,74 @@ final _chats = [
 ];
 
 void main() {
-  group('filterChatsBySearch', () {
-    group('empty query', () {
-      test('returns all chats when query is empty', () {
-        expect(filterChatsBySearch(_chats, ''), _chats);
-      });
+  group('filterChatsBySearchWithMessageMatches', () {
+    test('returns all chats when query is empty', () {
+      final results = filterChatsBySearchWithMessageMatches(_chats, '', {'g1'});
+      expect(results, _chats);
     });
 
-    group('name matching', () {
-      test('filters by exact name match', () {
-        final results = filterChatsBySearch(_chats, 'Alice');
-        expect(results.length, 1);
-        expect(results.first.mlsGroupId, 'd1');
-      });
-
-      test('filters by partial name match', () {
-        final results = filterChatsBySearch(_chats, 'Team');
-        expect(results.length, 2);
-        expect(results.map((c) => c.mlsGroupId).toList(), ['g1', 'g2']);
-      });
-
-      test('is case-insensitive', () {
-        final results = filterChatsBySearch(_chats, 'alice');
-        expect(results.length, 1);
-        expect(results.first.mlsGroupId, 'd1');
-      });
-
-      test('returns empty list when no matches', () {
-        expect(filterChatsBySearch(_chats, 'Zorro'), isEmpty);
-      });
-
-      test('excludes chats with null name', () {
-        final results = filterChatsBySearch(_chats, 'Engineering');
-        expect(results.every((c) => c.name != null), isTrue);
-      });
+    test('returns all chats when query is whitespace only', () {
+      final results = filterChatsBySearchWithMessageMatches(_chats, '   ', {'g1'});
+      expect(results, _chats);
     });
 
-    group('edge cases', () {
-      test('returns empty list when chats list is empty', () {
-        expect(filterChatsBySearch([], 'Alice'), isEmpty);
-      });
+    test('trims whitespace around query before matching', () {
+      final results = filterChatsBySearchWithMessageMatches(
+        _chats,
+        '  Alice  ',
+        <String>{},
+      );
+      expect(results.length, 1);
+      expect(results.first.mlsGroupId, 'd1');
+    });
 
-      test('preserves original order of matches', () {
-        final results = filterChatsBySearch(_chats, 'Team');
-        expect(results.first.mlsGroupId, 'g1');
-        expect(results.last.mlsGroupId, 'g2');
-      });
+    test('matches by name only', () {
+      final results = filterChatsBySearchWithMessageMatches(
+        _chats,
+        'Alice',
+        <String>{},
+      );
+      expect(results.length, 1);
+      expect(results.first.mlsGroupId, 'd1');
+    });
 
-      test('matches DM chats by peer display name', () {
-        final results = filterChatsBySearch(_chats, 'Bob');
-        expect(results.length, 1);
-        expect(results.first.groupType, GroupType.directMessage);
-      });
+    test('matches by messageMatchedGroupIds even if name does not match', () {
+      final results = filterChatsBySearchWithMessageMatches(
+        _chats,
+        'Zorro',
+        {'g2', 'd2'},
+      );
+      expect(results.length, 2);
+      expect(results.map((c) => c.mlsGroupId).toSet(), {'g2', 'd2'});
+    });
 
-      test('matches group chats by group name', () {
-        final results = filterChatsBySearch(_chats, 'Engineering');
-        expect(results.length, 1);
-        expect(results.first.groupType, GroupType.group);
-      });
+    test('matches by both name and message content without duplicates', () {
+      final results = filterChatsBySearchWithMessageMatches(
+        _chats,
+        'Alice',
+        {'d1', 'g1'},
+      );
+      expect(results.length, 2);
+      expect(results.map((c) => c.mlsGroupId).toSet(), {'d1', 'g1'});
+    });
+
+    test('returns empty when nothing matches', () {
+      final results = filterChatsBySearchWithMessageMatches(
+        _chats,
+        'Zorro',
+        <String>{},
+      );
+      expect(results, isEmpty);
+    });
+
+    test('preserves original order', () {
+      final results = filterChatsBySearchWithMessageMatches(
+        _chats,
+        'xyzzy',
+        {'d2', 'g1'},
+      );
+      expect(results.first.mlsGroupId, 'g1');
+      expect(results.last.mlsGroupId, 'd2');
     });
   });
 }
